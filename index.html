@@ -532,9 +532,77 @@
       0%   { opacity: 1; transform: translate(0,0) scale(1); }
       100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); }
     }
+
+    /* ─── WELCOME OVERLAY ───────────────────────────────────────────── */
+    #welcome-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9998;
+      background: linear-gradient(135deg, rgba(255,230,240,0.97) 0%, rgba(255,210,225,0.97) 100%);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.2rem;
+      cursor: pointer;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #welcome-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .overlay-cat {
+      font-size: 4rem;
+      animation: catBob 3s ease-in-out infinite;
+    }
+    .overlay-title {
+      font-family: 'Dancing Script', cursive;
+      font-size: clamp(2rem, 7vw, 3.2rem);
+      color: var(--rose-deep);
+      text-align: center;
+      text-shadow: 0 0 20px rgba(224,90,122,0.25);
+    }
+    .overlay-sub {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+      color: var(--text-mid);
+      text-align: center;
+    }
+    .overlay-btn {
+      margin-top: 0.5rem;
+      padding: 0.85rem 2.5rem;
+      border: none;
+      border-radius: 50px;
+      background: linear-gradient(135deg, var(--rose-light), var(--rose));
+      color: white;
+      font-family: 'Dancing Script', cursive;
+      font-size: 1.3rem;
+      cursor: pointer;
+      box-shadow: 0 6px 24px rgba(255,133,161,0.5);
+      animation: musicPulse 2s ease-in-out infinite;
+      transition: transform 0.2s ease;
+    }
+    .overlay-btn:hover { transform: scale(1.05); }
+    .overlay-hearts {
+      font-size: 1.3rem;
+      letter-spacing: 0.4rem;
+      opacity: 0.6;
+    }
   </style>
 </head>
 <body>
+
+  <!-- Welcome Overlay -->
+  <div id="welcome-overlay">
+    <div class="overlay-cat">🐾</div>
+    <div class="overlay-title">For My Baby ❤️</div>
+    <div class="overlay-sub">A letter made just for you, with all my heart</div>
+    <button class="overlay-btn" id="overlayBtn">✨ Open My Letter ✨</button>
+    <div class="overlay-hearts">💕 🌸 💕 🌸 💕</div>
+  </div>
 
   <!-- Floating Hearts Background -->
   <canvas id="particle-canvas"></canvas>
@@ -757,44 +825,52 @@
 
 
     /* ── 3. Music Player ──────────────────────────────────────────── */
-    const musicBtn  = document.getElementById('musicBtn');
-    const bgMusic   = document.getElementById('bgMusic');
-    let   isPlaying = false;
+    const musicBtn      = document.getElementById('musicBtn');
+    const bgMusic       = document.getElementById('bgMusic');
+    const overlay       = document.getElementById('welcome-overlay');
+    const overlayBtn    = document.getElementById('overlayBtn');
+    let   isPlaying     = false;
+
+    // Log audio errors to help debug
+    bgMusic.addEventListener('error', (e) => {
+      console.error('Audio error:', e);
+      console.error('Audio src:', bgMusic.currentSrc);
+      musicBtn.title = 'Audio file not found — check song.mp3 is uploaded';
+    });
+
+    const setPlaying = (state) => {
+      isPlaying = state;
+      musicBtn.textContent = state ? '🎵' : '❤️';
+      musicBtn.classList.toggle('playing', state);
+    };
 
     const tryPlay = () => {
-      bgMusic.play().then(() => {
-        isPlaying = true;
-        musicBtn.textContent = '🎵';
-        musicBtn.classList.add('playing');
-      }).catch(() => {
-        // autoplay blocked — handled by click
+      bgMusic.load(); // re-load in case it wasn't fetched yet
+      return bgMusic.play().then(() => {
+        setPlaying(true);
+      }).catch((err) => {
+        console.warn('Playback failed:', err);
       });
     };
 
+    // Overlay tap — guaranteed real user gesture
+    const dismissOverlay = () => {
+      overlay.classList.add('hidden');
+      tryPlay();
+    };
+    overlay.addEventListener('click', dismissOverlay);
+    overlayBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissOverlay(); });
+
+    // Music button toggle
     musicBtn.addEventListener('click', () => {
       if (isPlaying) {
         bgMusic.pause();
-        isPlaying = false;
-        musicBtn.textContent = '❤️';
-        musicBtn.classList.remove('playing');
+        setPlaying(false);
       } else {
         tryPlay();
       }
       spawnSparkBurst(musicBtn);
     });
-
-    // Attempt play on first user interaction anywhere
-    const firstInteract = () => {
-      if (!isPlaying) tryPlay();
-      document.removeEventListener('click',       firstInteract);
-      document.removeEventListener('touchstart',  firstInteract);
-      document.removeEventListener('keydown',     firstInteract);
-      document.removeEventListener('scroll',      firstInteract);
-    };
-    document.addEventListener('click',       firstInteract, { passive: true });
-    document.addEventListener('touchstart',  firstInteract, { passive: true });
-    document.addEventListener('keydown',     firstInteract, { passive: true });
-    document.addEventListener('scroll',      firstInteract, { passive: true });
 
 
     /* ── 4. Click Spark Burst ─────────────────────────────────────── */
